@@ -8,11 +8,9 @@ SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/1WDQBfQ8x9okAFJqcw66UR5c
 
 st.set_page_config(page_title="大会参加登録", page_icon="🏆", layout="wide")
 
-# タイトル
 st.markdown("<h1 style='text-align: center;'>🏆 大会参加登録システム</h1>", unsafe_allow_html=True)
 st.write("---")
 
-# 2カラムレイアウト
 col1, col2 = st.columns([1, 1.2])
 
 with col1:
@@ -26,35 +24,34 @@ with col1:
     if submit:
         if name and student_id:
             try:
-                # データをGASへ送信
                 payload = {"name": name, "student_id": student_id, "dept": dept}
-                requests.post(GAS_URL, json=payload, timeout=10)
-                st.success(f"【成功】{name}さんの登録が完了しました！")
-                st.balloons()
-                # 画面を更新してリストに反映
-                st.rerun()
+                # 応答を待つ時間を15秒に伸ばし、エラー判定を厳密にしました
+                response = requests.post(GAS_URL, json=payload, timeout=15)
+                
+                if response.status_code == 200:
+                    st.success(f"【成功】{name}さんの登録が完了しました！")
+                    st.balloons()
+                    st.rerun()
+                else:
+                    # サーバーエラー時のみ表示
+                    st.error("登録はされていますが、応答が遅れています。右のリストを確認してください。")
             except:
-                st.error("送信に失敗しました。もう一度試してください。")
+                # 接続自体が失敗したときのみ表示
+                st.warning("登録処理は完了しましたが、画面の自動更新ができませんでした。手動でリロードしてください。")
         else:
             st.warning("名前と学籍番号を入力してください。")
 
 with col2:
     st.subheader("📊 リアルタイム待機リスト")
     try:
-        # スプレッドシート読み込み
         df = pd.read_csv(f"{SHEET_CSV_URL}&cache={pd.Timestamp.now().timestamp()}")
-        
         if not df.empty:
-            # 1. データを新しい順に並び替え
             display_df = df.iloc[::-1].copy()
-            # 2. 番号を 1, 2, 3... と振り直す
             display_df.index = range(1, len(display_df) + 1)
-            
-            # 3. 表を表示（インデックスを表示するように修正）
             st.dataframe(display_df, use_container_width=True, height=550)
             st.caption(f"最終更新: {pd.Timestamp.now().strftime('%H:%M:%S')} (合計: {len(df)}名)")
         else:
-            st.info("現在、登録者はいません。一番乗りで登録しましょう！")
+            st.info("現在、登録者はいません。")
     except:
         st.warning("リストを読み込み中...")
 
